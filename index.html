@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>NÉON SURVIVOR</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+            cursor: default; 
+        }
+        canvas { display: block; }
+        
+        .center-ui {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: auto; 
+            z-index: 10;
+            width: 100%;
+        }
+        
+        #ui, #pauseMenu, #transitionScreen, #reviveMenu, #leaderboardUI, #loginUI, #mainMenuUI { color: white; }
+        /* On cache tout par défaut sauf le canvas */
+        #ui, #pauseMenu, #transitionScreen, #reviveMenu, #leaderboardUI, #loginUI, #mainMenuUI { display: none; }
+
+        /* Menu Principal */
+        #mainMenuUI {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.95);
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 100;
+        }
+
+        /* Écran de connexion (Pseudo) */
+        #loginUI {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.95);
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 100;
+        }
+
+        input[type="text"] {
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2rem;
+            padding: 10px;
+            text-align: center;
+            margin-top: 20px;
+            outline: none;
+            text-transform: uppercase;
+            width: 300px;
+        }
+        
+        /* Menu Résurrection */
+        #reviveMenu {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border: 2px solid #ff0055;
+            border-radius: 20px;
+            box-shadow: 0 0 50px #ff0055;
+            width: auto;
+            max-width: 600px;
+        }
+
+        /* Leaderboard */
+        #leaderboardUI {
+            background: rgba(0, 0, 0, 0.95);
+            padding: 20px;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 30px #00ffff;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            margin: 5px 0;
+            border-bottom: 1px solid #333;
+            padding: 5px;
+        }
+        .rank-1 { color: #ff0055; font-weight: bold; font-size: 1.4rem; text-shadow: 0 0 10px red; }
+        .rank-2 { color: #ffaa00; font-weight: bold; }
+        .rank-3 { color: #ffff00; font-weight: bold; }
+
+        .btn {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+            padding: 15px 30px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 20px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .btn-action { border-color: #00ffff; color: #00ffff; box-shadow: 0 0 15px #00ffff; }
+        .btn-action:hover { background: #00ffff; color: black; }
+        .btn-danger { border-color: #ff0055; color: #ff0055; }
+        .btn-danger:hover { background: #ff0055; color: white; }
+
+        h1 { font-size: 4rem; margin: 0; text-shadow: 0 0 30px currentColor; letter-spacing: 5px; text-transform: uppercase; }
+        .world-title { font-size: 8rem; font-weight: 900; opacity: 0; transform: scale(0.5); animation: popIn 3s forwards; }
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.1); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5); } }
+        
+        #scoreBoard { position: absolute; top: 20px; left: 20px; color: white; font-size: 1.5rem; font-weight: bold; pointer-events: none; z-index: 20; display: flex; flex-direction: column; }
+        .max-score { font-size: 1rem; color: #888; margin-top: 5px; }
+        .world-indicator { font-size: 0.9rem; color: #00ffff; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px;}
+        .lives-indicator { font-size: 1.2rem; color: #ff0055; margin-top: 10px; text-shadow: 0 0 10px red; }
+    </style>
+</head>
+<body>
+
+<div id="mainMenuUI">
+    <h1 style="color: #00ffff; margin-bottom: 50px;">NÉON SURVIVOR</h1>
+    <button class="btn btn-action" onclick="goToLogin()">JOUER</button>
+    <button class="btn" onclick="showLeaderboardFromMenu()">VOIR CLASSEMENT</button>
+</div>
+
+<div id="loginUI">
+    <h1 style="color: #00ffff">IDENTIFICATION</h1>
+    <p>Entrez votre pseudo :</p>
+    <input type="text" id="playerNameInput" placeholder="PSEUDO" maxlength="10">
+    <div>
+        <button class="btn btn-action" onclick="submitName()">LANCER</button>
+        <button class="btn" onclick="backToMenu()">RETOUR</button>
+    </div>
+</div>
+
+<div id="scoreBoard">
+    <span id="currentScore">SURVIE: 0</span>
+    <span id="livesDisplay" class="lives-indicator">❤❤ VIE: 1</span>
+    <span id="worldName" class="world-indicator">MONDE: NEON GRID</span>
+</div>
+
+<div id="ui" class="center-ui" onclick="tryStartGame()">
+    <h1 id="title" style="color: #00ffff">PRÊT ?</h1>
+    <p id="subtitle">Évitez les ennemis.<br>Le CŒUR arrive en fin de niveau.<br>Cliquez ici pour démarrer</p>
+</div>
+
+<div id="pauseMenu" class="center-ui">
+    <h1 style="color: white; text-shadow: 0 0 20px white;">PAUSE</h1>
+</div>
+
+<div id="transitionScreen" class="center-ui">
+    <div id="worldTitle" class="world-title">THE ABYSS</div>
+</div>
+
+<div id="reviveMenu" class="center-ui">
+    <h2 style="color: #ff0055; font-size: 3rem; margin: 0; text-shadow: 0 0 20px red;">IMPACT FATAL</h2>
+    <p>Continuer ?</p>
+    <p style="color: #00ffff">Coût : -1000 Points</p>
+    <div>
+        <button class="btn btn-action" onclick="revivePlayer(event)">Ressusciter</button>
+        <button class="btn btn-danger" onclick="confirmDeath(event)">Abandonner</button>
+    </div>
+</div>
+
+<div id="leaderboardUI" class="center-ui">
+    <h2 style="color: #00ffff">CLASSEMENT</h2>
+    <div id="scoresList">Chargement...</div>
+    <br>
+    <button id="replayBtn" class="btn btn-action" style="display:none" onclick="location.reload()">REJOUER</button>
+    <button id="backBtn" class="btn" style="display:none" onclick="backToMenu()">RETOUR MENU</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    // =========================================================
+    // CONFIGURATION LEADERBOARD
+    // =========================================================
+    const DREAMLO_PRIVATE = "GX3uDcm13UW3tl-0dpn6ZgY2ZRI7kAlkap_nl71N-qhQ"; 
+    const DREAMLO_PUBLIC  = "69667d808f40bccf80dfaa78"; 
+    // =========================================================
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const mainMenuUI = document.getElementById('mainMenuUI');
+    const loginUI = document.getElementById('loginUI');
+    const ui = document.getElementById('ui');
+    const pauseMenu = document.getElementById('pauseMenu');
+    const transitionScreen = document.getElementById('transitionScreen');
+    const reviveMenu = document.getElementById('reviveMenu');
+    const leaderboardUI = document.getElementById('leaderboardUI');
+    
+    // Text Elements
+    const worldTitleEl = document.getElementById('worldTitle');
+    const scoreEl = document.getElementById('currentScore');
+    const livesEl = document.getElementById('livesDisplay');
+    const worldNameEl = document.getElementById('worldName');
+    const scoresListEl = document.getElementById('scoresList');
+
+    // Buttons Leaderboard
+    const replayBtn = document.getElementById('replayBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let playerName = "";
+    let hueCycler = 0;
+    const WORLDS = {
+        0: { name: "NEON GRID", color: "#00ffff", bgFunc: drawNeonBg, enemyType: "circle" },
+        1: { name: "THE ABYSS", color: "#0066ff", bgFunc: drawOceanBg, enemyType: "urchin" },
+        2: { name: "INFERNO", color: "#ff3300", bgFunc: drawFireBg, enemyType: "dragon" },
+        3: { name: "THE VOID", color: "#ffffff", bgFunc: drawVoidBg, enemyType: "glitch" },
+        4: { name: "SINGULARITY", color: "#ff00ff", bgFunc: drawSingularityBg, enemyType: "quantum" }
+    };
+
+    let animationId;
+    let score = 0;
+    let frameCount = 0; 
+    let lives = 1;
+    let heartSpawnedInWorld = false; 
+    let gameActive = false;
+    let isPaused = false;
+    let isTransitioning = false;
+    let spawnTimeoutId;
+    let currentWorldIndex = 0;
+    let bgParticles = [];
+    let enemies = [];
+    const player = { x: canvas.width/2, y: canvas.height/2, radius: 8, color: '#fff' };
+    const mouse = { x: canvas.width/2, y: canvas.height/2 };
+
+    // --- NAVIGATION DU MENU ---
+    function init() {
+        // Initialisation de base
+        enemies = []; bgParticles = []; score = 0; lives = 1; 
+        currentWorldIndex = 0; heartSpawnedInWorld = false;
+        frameCount = 0;
+        
+        // Configuration de l'affichage initial : MENU PRINCIPAL
+        hideAllUI();
+        mainMenuUI.style.display = 'flex';
+        
+        // Particules d'ambiance
+        for(let i=0; i<50; i++) bgParticles.push(new BgParticle(0));
+        
+        // Lance l'animation de fond (sans le jeu)
+        animateBackgroundOnly();
+    }
+
+    function hideAllUI() {
+        mainMenuUI.style.display = 'none';
+        loginUI.style.display = 'none';
+        ui.style.display = 'none';
+        leaderboardUI.style.display = 'none';
+        reviveMenu.style.display = 'none';
+    }
+
+    function goToLogin() {
+        hideAllUI();
+        loginUI.style.display = 'flex';
+    }
+
+    function backToMenu() {
+        hideAllUI();
+        mainMenuUI.style.display = 'flex';
+        // On s'assure que le leaderboard n'est plus visible
+        leaderboardUI.style.display = 'none';
+    }
+
+    function showLeaderboardFromMenu() {
+        hideAllUI();
+        leaderboardUI.style.display = 'block';
+        replayBtn.style.display = 'none'; // Cache bouton Rejouer
+        backBtn.style.display = 'inline-block'; // Affiche bouton Retour
+        getLeaderboard();
+    }
+
+    function submitName() {
+        const input = document.getElementById('playerNameInput');
+        if (input.value.trim() !== "") {
+            playerName = input.value.trim().toUpperCase().substring(0, 10);
+            hideAllUI();
+            ui.style.display = 'block'; // Écran "Prêt ?"
+            // On arrête l'anim de fond simple pour préparer le jeu
+            cancelAnimationFrame(animationId);
+            animate(); // On lance la boucle de jeu (mais ennemis spawnent au clic)
+        } else {
+            alert("Entre un pseudo !");
+        }
+    }
+
+    // --- LEADERBOARD LOGIC ---
+    function sendScore(name, score) {
+        if (!DREAMLO_PRIVATE) return;
+        const url = `https://www.dreamlo.com/lb/${DREAMLO_PRIVATE}/add/${name}/${score}`;
+        fetch(url).then(() => getLeaderboard());
+    }
+
+    function getLeaderboard() {
+        if (!DREAMLO_PUBLIC) {
+            scoresListEl.innerHTML = "Leaderboard non configuré.";
+            return;
+        }
+        const url = `https://www.dreamlo.com/lb/${DREAMLO_PUBLIC}/json`;
+        scoresListEl.innerHTML = "Chargement du Top 10...";
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                let html = "";
+                let entries = data.dreamlo.leaderboard.entry;
+                if (!entries) {
+                    html = "Aucun score pour l'instant.";
+                } else {
+                    if (!Array.isArray(entries)) entries = [entries];
+                    entries = entries.slice(0, 10);
+                    entries.forEach((entry, index) => {
+                        let rankClass = "";
+                        if(index === 0) rankClass = "rank-1";
+                        if(index === 1) rankClass = "rank-2";
+                        if(index === 2) rankClass = "rank-3";
+                        html += `<div class="leaderboard-row ${rankClass}">
+                                    <span>${index+1}. ${entry.name}</span>
+                                    <span>${entry.score}</span>
+                                 </div>`;
+                    });
+                }
+                scoresListEl.innerHTML = html;
+            })
+            .catch(err => {
+                scoresListEl.innerHTML = "Erreur de connexion.";
+            });
+    }
+
+    // --- INPUTS ---
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+    
+    window.tryStartGame = function() {
+        // Condition stricte : le jeu ne démarre que si on est sur l'écran #ui ("Prêt ?")
+        if (ui.style.display === 'block' && !gameActive && !isPaused) {
+            startGame();
+        }
+    };
+    
+    window.addEventListener('mousedown', () => { tryStartGame(); });
+    window.addEventListener('keydown', e => { if (e.code === 'Space') togglePause(); });
+
+    function togglePause() {
+        if (!gameActive || isTransitioning || reviveMenu.style.display === 'block') return;
+        isPaused = !isPaused;
+        if (isPaused) {
+            cancelAnimationFrame(animationId); clearTimeout(spawnTimeoutId); pauseMenu.style.display = 'block'; document.body.style.cursor = 'default';
+        } else {
+            animate(); spawnEnemies(); pauseMenu.style.display = 'none'; document.body.style.cursor = 'none';
+        }
+    }
+
+    function updateLivesUI() {
+        let hearts = "❤".repeat(lives);
+        let text = `${hearts} VIE: ${lives}`;
+        if (lives >= 3) text += " (MAX)";
+        livesEl.innerText = text;
+    }
+
+    function handleCollision() {
+        cancelAnimationFrame(animationId); clearTimeout(spawnTimeoutId);
+        if (lives > 0) {
+            reviveMenu.style.display = 'block'; document.body.style.cursor = 'default';
+        } else {
+            endGame();
+        }
+    }
+
+    window.revivePlayer = function(e) {
+        if(e) e.stopPropagation();
+        lives--;
+        score -= 1000;
+        if (score < 0) score = 0;
+        updateLivesUI();
+        scoreEl.innerText = `SURVIE: ${score}`;
+        reviveMenu.style.display = 'none';
+        document.body.style.cursor = 'none';
+        enemies = [];
+        const flashDiv = document.createElement('div');
+        flashDiv.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;background:white;z-index:100;transition:opacity 0.5s";
+        document.body.appendChild(flashDiv);
+        setTimeout(() => { flashDiv.style.opacity = '0'; }, 50);
+        setTimeout(() => { flashDiv.remove(); }, 600);
+        checkWorldByScore(); spawnEnemies(); animate();
+    }
+
+    window.confirmDeath = function(e) {
+        if(e) e.stopPropagation();
+        reviveMenu.style.display = 'none';
+        endGame();
+    }
+
+    function checkWorldByScore() {
+        let targetIndex = 0;
+        if (score >= 4500) targetIndex = 4;
+        else if (score >= 3500) targetIndex = 3;
+        else if (score >= 2500) targetIndex = 2;
+        else if (score >= 1500) targetIndex = 1;
+        else targetIndex = 0;
+
+        if (targetIndex !== currentWorldIndex) {
+            currentWorldIndex = targetIndex;
+            heartSpawnedInWorld = false; 
+            updateWorldUI();
+            bgParticles = [];
+            const count = (currentWorldIndex === 1) ? 100 : 50;
+            for(let i=0; i<count; i++) bgParticles.push(new BgParticle(currentWorldIndex));
+        }
+    }
+
+    // --- CLASSES ---
+    class Enemy {
+        constructor(x, y, radius, color, velocity, type) {
+            this.x = x; this.y = y; this.radius = radius; this.color = color; this.velocity = velocity; this.type = type;
+            this.angle = 0; this.rotationSpeed = (Math.random() - 0.5) * 0.2; 
+        }
+        draw() {
+            ctx.save(); ctx.translate(this.x, this.y);
+            if (this.type === 'heart') {
+                const pulse = 1 + Math.sin(Date.now() / 100) * 0.3; ctx.scale(pulse, pulse); ctx.fillStyle = '#ff0000'; ctx.shadowBlur = 30; ctx.shadowColor = 'red';
+                ctx.beginPath(); const r = this.radius * 1.5; ctx.moveTo(0, r/4); ctx.bezierCurveTo(0, -r/2, -r, -r/2, -r, r/4); ctx.bezierCurveTo(-r, r, 0, r*1.5, 0, r*1.5); ctx.bezierCurveTo(0, r*1.5, r, r, r, r/4); ctx.bezierCurveTo(r, -r/2, 0, -r/2, 0, r/4); ctx.fill();
+            } else if (this.type === 'circle') {
+                ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2); ctx.strokeStyle = this.color; ctx.lineWidth = 3; ctx.shadowBlur = 10; ctx.shadowColor = this.color; ctx.stroke();
+            } else if (this.type === 'urchin') {
+                this.angle += this.rotationSpeed; ctx.rotate(this.angle); ctx.beginPath(); const spikes = 12; for(let i=0; i<spikes; i++) { const r = (i % 2 === 0) ? this.radius * 1.2 : this.radius * 0.6; const a = (Math.PI * 2 * i) / spikes; if(i===0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r); else ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); } ctx.closePath(); const grad = ctx.createRadialGradient(0,0, this.radius*0.1, 0,0, this.radius*1.2); grad.addColorStop(0, 'white'); grad.addColorStop(1, this.color); ctx.fillStyle = grad; ctx.shadowBlur = 15; ctx.shadowColor = this.color; ctx.fill();
+            } else if (this.type === 'dragon') {
+                this.angle += 0.1; ctx.rotate(this.angle); ctx.beginPath(); ctx.moveTo(this.radius, 0); ctx.lineTo(-this.radius, -this.radius/2); ctx.lineTo(-this.radius, this.radius/2); ctx.closePath(); ctx.fillStyle = '#ffaa00'; ctx.shadowBlur = 30; ctx.shadowColor = 'red'; ctx.fill();
+            } else if (this.type === 'glitch') {
+                ctx.fillStyle = Math.random() > 0.5 ? 'white' : 'black'; ctx.fillRect(-this.radius, -this.radius, this.radius*2, this.radius*2); ctx.shadowBlur = 10; ctx.shadowColor = 'white';
+            } else if (this.type === 'quantum') {
+                this.angle -= 0.15; ctx.rotate(this.angle); ctx.beginPath(); for (let i = 0; i < 6; i++) { ctx.lineTo(this.radius * Math.cos(i * Math.PI / 3), this.radius * Math.sin(i * Math.PI / 3)); } ctx.closePath(); ctx.strokeStyle = `hsl(${hueCycler * 2}, 100%, 50%)`; ctx.lineWidth = 5; ctx.shadowBlur = 25; ctx.shadowColor = ctx.strokeStyle; ctx.stroke(); ctx.beginPath(); ctx.arc(0,0, this.radius * 0.3, 0, Math.PI*2); ctx.fillStyle = 'white'; ctx.fill();
+            }
+            ctx.restore();
+        }
+        update() { this.draw(); this.x += this.velocity.x; this.y += this.velocity.y; }
+    }
+
+    class BgParticle {
+        constructor(worldIdx) { this.world = worldIdx; this.init(worldIdx); }
+        init(worldIdx) {
+            this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
+            if (worldIdx === 1) { this.size = Math.random() * 5; this.speedY = -Math.random() * 3 - 0.5; this.speedX = (Math.random() - 0.5) * 0.5; this.color = `rgba(0, 150, 255, ${Math.random() * 0.4})`; } 
+            else if (worldIdx === 2) { this.size = Math.random() * 4; this.speedY = -Math.random() * 3 - 1; this.speedX = (Math.random() - 0.5) * 2; this.color = `rgba(255, 100, 0, ${Math.random()})`; } 
+            else if (worldIdx === 4) { this.x = canvas.width / 2; this.y = canvas.height / 2; this.angle = Math.random() * Math.PI * 2; this.speed = Math.random() * 10 + 2; this.size = Math.random() * 3; this.color = 'white'; } 
+            else { this.size = Math.random() * 3; this.speedY = (Math.random() - 0.5) * 2; this.speedX = (Math.random() - 0.5) * 2; this.color = 'rgba(255,255,255,0.1)'; }
+        }
+        update() {
+            if (this.world === 4) {
+                this.x += Math.cos(this.angle) * this.speed; this.y += Math.sin(this.angle) * this.speed; this.speed *= 1.05; this.size *= 1.02;
+                ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - Math.cos(this.angle) * 30, this.y - Math.sin(this.angle) * 30); ctx.strokeStyle = `hsl(${hueCycler}, 100%, 80%)`; ctx.stroke();
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) { this.init(4); }
+            } else {
+                this.x += this.speedX; this.y += this.speedY; if(this.y < 0) this.y = canvas.height; if(this.x > canvas.width) this.x = 0; if(this.x < 0) this.x = canvas.width; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fillStyle = this.color; ctx.fill();
+            }
+        }
+    }
+
+    function drawNeonBg() { ctx.fillStyle = 'rgba(5, 5, 10, 0.3)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    function drawOceanBg() { const grad = ctx.createLinearGradient(0, 0, 0, canvas.height); grad.addColorStop(0, '#000510'); grad.addColorStop(0.5, '#001133'); grad.addColorStop(1, '#002244'); ctx.fillStyle = grad; ctx.globalAlpha = 0.3; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.globalAlpha = 1; }
+    function drawFireBg() { ctx.fillStyle = 'rgba(20, 0, 0, 0.3)'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = `rgba(255, 50, 0, ${Math.random() * 0.05})`; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    function drawVoidBg() { ctx.fillStyle = Math.random() > 0.9 ? 'rgba(50,50,50,0.5)' : 'rgba(0,0,0,0.4)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    function drawSingularityBg() { ctx.fillStyle = `rgba(0, 0, 0, 0.2)`; ctx.fillRect(0, 0, canvas.width, canvas.height); const cx = canvas.width / 2; const cy = canvas.height / 2; ctx.save(); ctx.translate(cx, cy); ctx.rotate(hueCycler * 0.01); const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, canvas.width); grad.addColorStop(0, 'black'); grad.addColorStop(0.5, `hsla(${hueCycler}, 50%, 20%, 0.2)`); grad.addColorStop(1, `hsla(${hueCycler + 180}, 50%, 20%, 0.2)`); ctx.fillStyle = grad; ctx.fillRect(-cx, -cy, canvas.width*2, canvas.height*2); ctx.restore(); }
+
+    function triggerTransition(newIndex) {
+        if(newIndex > 4) return; isTransitioning = true; clearTimeout(spawnTimeoutId); enemies = []; transitionScreen.style.display = 'block'; const wInfo = WORLDS[newIndex]; worldTitleEl.innerText = wInfo.name; worldTitleEl.style.color = wInfo.color; worldTitleEl.style.textShadow = `0 0 50px ${wInfo.color}`; if (newIndex === 4) worldTitleEl.style.animation = "popIn 4s forwards";
+        setTimeout(() => { currentWorldIndex = newIndex; heartSpawnedInWorld = false; updateWorldUI(); bgParticles = []; const count = (newIndex === 1) ? 100 : (newIndex === 4 ? 80 : 50); for(let i=0; i<count; i++) bgParticles.push(new BgParticle(newIndex)); transitionScreen.style.display = 'none'; isTransitioning = false; spawnEnemies(); }, 3000); 
+    }
+
+    function updateWorldUI() { const w = WORLDS[currentWorldIndex]; worldNameEl.innerText = `MONDE: ${w.name}`; worldNameEl.style.color = w.color; if (currentWorldIndex === 4) worldNameEl.style.animation = "rainbow 2s infinite"; else worldNameEl.style.animation = "none"; }
+
+    function spawnEnemies() {
+        if (!gameActive || isPaused || isTransitioning || reviveMenu.style.display === 'block') return;
+        
+        // --- LOGIQUE DIFFICULTÉ ---
+        let radius = Math.random() * (30 - 10) + 10;
+        let currentType = WORLDS[currentWorldIndex].enemyType;
+        let threshold = -1;
+
+        if (currentWorldIndex === 0) threshold = 1200;
+        else if (currentWorldIndex === 1) threshold = 2200;
+        else if (currentWorldIndex === 2) threshold = 3200;
+        else if (currentWorldIndex === 3) threshold = 4200;
+        else if (currentWorldIndex === 4) threshold = 5000;
+
+        if (!heartSpawnedInWorld && threshold !== -1 && score >= threshold) { 
+            if (Math.random() < 0.2) { currentType = 'heart'; heartSpawnedInWorld = true; radius = 10; } 
+        }
+
+        let x, y; if (Math.random() < 0.5) { x = Math.random() < 0.5 ? 0 - radius : canvas.width + radius; y = Math.random() * canvas.height; } else { x = Math.random() * canvas.width; y = Math.random() < 0.5 ? 0 - radius : canvas.height + radius; }
+        const w = WORLDS[currentWorldIndex]; let color = w.color; if (currentWorldIndex === 4) color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        
+        const angle = Math.atan2(canvas.height / 2 - y, canvas.width / 2 - x);
+        
+        let speedBase = 2.5; 
+        if (currentType === 'heart') speedBase = 5.0; 
+
+        let velocityMultiplier = 1;
+        let nextSpawnTime = 800;
+
+        if (score < 3500) {
+            velocityMultiplier = 1 + (score / 1500); 
+            nextSpawnTime = 800 - (score * 0.15); 
+        } else if (score >= 3500 && score < 4500) {
+            velocityMultiplier = 3.0; 
+            nextSpawnTime = 220; 
+        } else {
+            velocityMultiplier = 3.5 + ((score - 4500) / 1000); 
+            nextSpawnTime = 80; 
+            if (score > 5000) nextSpawnTime = 40; 
+        }
+        if (nextSpawnTime < 20) nextSpawnTime = 20;
+
+        const velocity = { x: Math.cos(angle) * (speedBase * velocityMultiplier), y: Math.sin(angle) * (speedBase * velocityMultiplier) };
+        enemies.push(new Enemy(x, y, radius, color, velocity, currentType));
+        
+        spawnTimeoutId = setTimeout(spawnEnemies, nextSpawnTime);
+    }
+
+    // Fonction d'animation simple pour le menu (fond seulement)
+    function animateBackgroundOnly() {
+        if (gameActive) return; // Si jeu actif, on laisse l'autre boucle
+        requestAnimationFrame(animateBackgroundOnly);
+        hueCycler++;
+        WORLDS[currentWorldIndex].bgFunc();
+        bgParticles.forEach(p => p.update());
+    }
+
+    function animate() {
+        if (isPaused) return; 
+        animationId = requestAnimationFrame(animate); 
+        hueCycler++; 
+        WORLDS[currentWorldIndex].bgFunc(); 
+        bgParticles.forEach(p => p.update()); 
+        
+        if (!gameActive) return; // Sécurité si on est dans le menu mais que cette boucle tourne encore
+
+        if (isTransitioning) return; 
+
+        // --- SCORE 3 FOIS PLUS LENT ---
+        frameCount++;
+        if (frameCount % 3 === 0) { 
+            score++; 
+            scoreEl.innerText = `SURVIE: ${score}`;
+            if (score === 1500 && currentWorldIndex === 0) triggerTransition(1); 
+            if (score === 2500 && currentWorldIndex === 1) triggerTransition(2); 
+            if (score === 3500 && currentWorldIndex === 2) triggerTransition(3); 
+            if (score === 4500 && currentWorldIndex === 3) triggerTransition(4);
+        }
+
+        const responsiveness = 0.8; player.x += (mouse.x - player.x) * responsiveness; player.y += (mouse.y - player.y) * responsiveness;
+        const w = WORLDS[currentWorldIndex]; let playerGlow = w.color; if (currentWorldIndex === 4) playerGlow = 'white';
+        ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fillStyle = player.color; ctx.shadowBlur = 15; ctx.shadowColor = playerGlow; ctx.fill(); ctx.shadowBlur = 0;
+        enemies.forEach((enemy, index) => {
+            enemy.update();
+            if (enemy.x < -200 || enemy.x > canvas.width + 200 || enemy.y < -200 || enemy.y > canvas.height + 200) { setTimeout(() => enemies.splice(index, 1), 0); }
+            const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y); const hitBoxAdjust = (enemy.type === 'urchin' || enemy.type === 'quantum') ? 5 : 0; 
+            if (dist - enemy.radius - player.radius + hitBoxAdjust < 1) {
+                if (enemy.type === 'heart') { if (lives < 3) { lives++; updateLivesUI(); } enemies.splice(index, 1); } else { handleCollision(); }
+            }
+        });
+    }
+
+    function endGame() {
+        cancelAnimationFrame(animationId); clearTimeout(spawnTimeoutId); gameActive = false;
+        sendScore(playerName, score);
+        
+        hideAllUI();
+        leaderboardUI.style.display = 'block'; 
+        
+        // Configuration boutons fin de partie
+        replayBtn.style.display = 'inline-block'; // On peut rejouer
+        backBtn.style.display = 'none'; // Pas de retour menu direct ici (choix design simple)
+        
+        document.body.style.cursor = 'default';
+        getLeaderboard();
+    }
+
+    function startGame() { 
+        gameActive = true; 
+        ui.style.display = 'none'; 
+        document.body.style.cursor = 'none';
+        
+        enemies = []; score = 0; lives = 1; currentWorldIndex = 0; heartSpawnedInWorld = false;
+        frameCount = 0; 
+        updateWorldUI(); updateLivesUI();
+        
+        spawnEnemies(); 
+    }
+    
+    init(); 
+
+</script>
+</body>
+</html>
